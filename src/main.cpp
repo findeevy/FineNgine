@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
+#include <vector>
 
 class HelloTriangleApplication{
   public:
@@ -54,8 +55,17 @@ class HelloTriangleApplication{
         throw std::runtime_error("failed to create instance!");
       }
 
-      //Check for extension support.
-
+      //Extensions
+      uint32_t extensionCount = 0;
+      vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+      //Allocate an array told the details.
+      std::vector<VkExtensionsProperties> extensions(extensionCount);
+      vKEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+      std::cout << "Available Support Extensions:\n";
+      //Iterate through the extensions.
+      for (const auto& extension : extensions){
+        std::cout << '\t' << extensions.extensionName << '\n';
+      }
     }
     void initVulkan(){
       createInstance();
