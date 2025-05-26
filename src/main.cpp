@@ -1,8 +1,10 @@
-#include <vulkan/vulkan.h>
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
 #include <vector>
+#include <cstring>
 
 class HelloTriangleApplication{
   public:
@@ -31,21 +33,37 @@ class HelloTriangleApplication{
     bool checkValidationLayerSupport(){
       uint32_t layerCount;
       vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-      std::vector<VkLayerProperties> availableLayers(&layerCount);
+      std::vector<VkLayerProperties> availableLayers(layerCount);
       vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-      return false;
+      //Iterate through the available layers to check if we have all of the ones we need. 
+      for (const char* layerName : validationLayers){
+        bool layerFound = false;
+        
+	for (const auto& layerProperties : availableLayers){
+	  if(strcmp(layerName, layerProperties.layerName) == 0) {
+	    layerFound = true;
+	    break;
+	  }
+	}
+	if (!layerFound){
+	  return false;
+	}
+      }
+      return true;
     }
 
     void initWindow(){
       glfwInit();
 
       glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-      glfwWindowHint(GLFW_RESIZEABLE, GLFW_FALSE);
+      glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
       window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
     }
     void createInstance(){
+      if (enableValidationLayers && !checkValidationLayerSupport()){
+        throw std::runtime_error("validation layers requested, but not available!");
+      }
       //Info to set up the Vulkan application.
       VkApplicationInfo appInfo{};
       appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -66,7 +84,7 @@ class HelloTriangleApplication{
       uint32_t glfwExtensionCount = 0;
       const char** glfwExtensions;
       glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-      createInfo.enabledExtensionsCount = glfwExtensionCount;
+      createInfo.enabledExtensionCount = glfwExtensionCount;
       createInfo.ppEnabledExtensionNames = glfwExtensions;
       createInfo.enabledLayerCount =  0;
       VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
@@ -78,12 +96,12 @@ class HelloTriangleApplication{
       uint32_t extensionCount = 0;
       vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
       //Allocate an array told the details.
-      std::vector<VkExtensionsProperties> extensions(extensionCount);
-      vKEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+      std::vector<VkExtensionProperties> extensions(extensionCount);
+      vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
       std::cout << "Available Support Extensions:\n";
       //Iterate through the extensions.
       for (const auto& extension : extensions){
-        std::cout << '\t' << extensions.extensionName << '\n';
+        std::cout << '\t' << extension.extensionName << '\n';
       }
     }
     void initVulkan(){
@@ -106,7 +124,7 @@ int main(){
   try {
     app.run();
   } catch (const std::exception& e){
-    std::cerr << e.what() << std.endl;
+    std::cerr << e.what() << std::endl;
     return EXIT_FAILURE;
   
   }
