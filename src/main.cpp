@@ -182,9 +182,39 @@ class HelloTriangleApplication{
       }
     }
     
+    bool isDeviceSuitable(VkPhysicalDevice device) {
+      VkPhysicalDeviceProperties deviceProperties;
+      VkPhysicalDeviceFeatures deviceFeatures;
+      vkGetPhysicalDeviceProperties(device, &deviceProperties);
+      vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+      return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && deviceFeatures.geometryShader;
+    }
+    
+    //Maybe later allow the user to change GPU?
+    void pickPhysicalDevice(){
+      uint32_t deviceCount = 0;
+      vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+      //If there is no GPU, return an error.
+      if (deviceCount == 0){
+        throw std::runtime_error("No GPUs detected.");
+      }
+      std::vector<VkPhysicalDevice> devices(deviceCount);
+      vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+      for (const auto& device : devices){
+        if (isDeviceSuitable(device)){
+          physicalDevice = device;
+          break;
+        }
+      }
+      if (physicalDevice == VK_NULL_HANDLE){
+        throw std::runtime_error("No GPUs with Vulkan support detected.");
+      }
+    }
+
     void initVulkan(){
       createInstance();
       setupDebugMessenger();
+      pickGraphicsCard();
     }
 
     void mainLoop(){
