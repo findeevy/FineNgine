@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <limits>
 #include <algorithm>
+#include <fstream>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -336,8 +337,35 @@ class HelloTriangleApplication{
       createSwapChain();
       //Create place to put our frames.
       createImageViews();
+      createGraphicsPipeline();
+    }
+
+    void createGraphicsPipeline(){
+      //Loading fragment and vertex shaders.
+      auto vertShaderCode = readFile("shaders/vert.spv");
+      auto fragShaderCode = readFile("shaders/frag.spv");
+      VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+      VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+      //Create vertex shader stage.
+      VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+      vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+      vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+      vertShaderStageInfo.module = vertShaderModule;
+      vertShaderStageInfo.pName = "main";
     }
     
+    VkShaderModule createShaderModule(const std::vector<char>& code) {
+      VkShaderModuleCreateInfo createInfo{};
+      createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+      createInfo.codeSize = code.size();
+      createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+      VkShaderModule shaderModule;
+      if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS){
+        throw std::runtime_error("Could not initialize shader module!");
+      }
+      return shaderModule;
+    }
+
     void createLogicalDevice(){
       QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
       std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -495,6 +523,20 @@ class HelloTriangleApplication{
 	}
       }
     }
+    
+    static std::vector<char> readFile(const std::string& filename){
+      std::ifstream file(filename, std::ios::ate | std::ios::binary);
+      if (!file.is_open()){
+        throw std::runtime_error("Failed to open file!");
+      }
+
+      size_t fileSize = (size_t) file.tellg();
+      std::vector<char> buffer(fileSize);
+      file.seekg(0);
+      file.read(buffer.data(), fileSize);
+      file.close();
+      return buffer;
+    }
 
     void mainLoop(){
       while(!glfwWindowShouldClose(window)){
@@ -503,6 +545,8 @@ class HelloTriangleApplication{
     }
 
     void cleanup(){
+      vkDestroyShaderModule(device, fragShaderModule, nullptr);
+      vkDestroyShaderModule(device, vertShaderModule, nullptr);
       for (auto imageView : swapChainImageViews) {
         vkDestroyImageView(device, imageView, nullptr);
       }
