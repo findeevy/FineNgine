@@ -92,6 +92,12 @@ class HelloTriangleApplication{
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
     
+    VkRenderPass renderPass;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline graphicsPipeline;
+    std::vector<VkFramebuffer> swapChainFramebuffers;
+    VkCommandPool commandPool;
+
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
       QueueFamilyIndices indices;
       uint32_t queueFamilyCount = 0;
@@ -337,7 +343,47 @@ class HelloTriangleApplication{
       createSwapChain();
       //Create place to put our frames.
       createImageViews();
+      createRenderPass();
       createGraphicsPipeline();
+      createFramebuffers();
+      createCommandPool();
+    }
+
+    void createCommandPool() {
+      QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+      VkCommandPoolCreateInfo poolInfo{};
+      poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+      poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
+      poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+      if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create command pool!");
+      }
+    }
+
+    void createRenderPass(){
+      VkAttachmentDescription colorAttachment{};
+      colorAttachment.format = swapChainImageFormat;
+      colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+      colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+      colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+      colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+      colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+      VkSubpassDescription subpass{};
+      subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+      subpass.colorAttachmentCount = 1;
+      subpass.pColorAttachments = &colorAttachmentRef;
+      
+      VkRenderPassCreateInfo renderPassInfo{};
+      renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+      renderPassInfo.attachmentCount = 1;
+      renderPassInfo.pAttachments = &colorAttachment;
+      renderPassInfo.subpassCount = 1;
+      renderPassInfo.pSubpasses = &subpass;
+      if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create render pass!");
+      }
     }
 
     void createGraphicsPipeline() {
@@ -431,6 +477,32 @@ class HelloTriangleApplication{
 
       if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create pipeline layout!");
+      }
+      
+      VkGraphicsPipelineCreateInfo pipelineInfo{};
+      pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+      pipelineInfo.stageCount = 2;
+      pipelineInfo.pStages = shaderStages;
+
+      pipelineInfo.pVertexInputState = &vertexInputInfo;
+      pipelineInfo.pInputAssemblyState = &inputAssembly;
+      pipelineInfo.pViewportState = &viewportState;
+      pipelineInfo.pRasterizationState = &rasterizer;
+      pipelineInfo.pMultisampleState = &multisampling;
+      pipelineInfo.pDepthStencilState = nullptr;
+      pipelineInfo.pColorBlendState = &colorBlending;
+      pipelineInfo.pDynamicState = &dynamicState;
+
+      pipelineInfo.layout = pipelineLayout;
+
+      pipelineInfo.renderPass = renderPass;
+      pipelineInfo.subpass = 0;
+
+      pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+      pipelineInfo.basePipelineIndex = -1;
+      
+      if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create graphics pipeline!");
       }
 
       vkDestroyShaderModule(device, fragShaderModule, nullptr);
@@ -607,6 +679,30 @@ class HelloTriangleApplication{
       }
     }
     
+
+    void createFramebuffers() {
+      swapChainFramebuffers.resize(swapChainImageViews.size());
+
+      for (size_t i = 0; i < swapChainImageViews.size(); i++){
+        VkImageView attachments[] = {
+          swapChainImageViews[i]
+        };
+
+        VkFramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = renderPass;
+        framebufferInfo.attachmentCount = 1;
+        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.width = swapChainExtent.width;
+        framebufferInfo.height = swapChainExtent.height;
+        framebufferInfo.layers = 1;
+
+        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS){
+          throw std::runtime_error("Failed to create framebuffer!");
+        }
+      }
+    }
+
     static std::vector<char> readFile(const std::string& filename){
       std::ifstream file(filename, std::ios::ate | std::ios::binary);
       if (!file.is_open()){
@@ -628,7 +724,13 @@ class HelloTriangleApplication{
     }
 
     void cleanup(){
+      vkDestroyCommandPool(device, commandPool, nullptr);
+      for (auto framebuffer : swapChainFramebuffers) {
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+      }
+      vkDestroyPipeline(device, graphicsPipeline, nullptr);
       vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+      vkDestroyRenderPass(device, renderPass, nullptr);
       for (auto imageView : swapChainImageViews) {
         vkDestroyImageView(device, imageView, nullptr);
       }
