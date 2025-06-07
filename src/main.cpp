@@ -30,6 +30,7 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
+
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
   auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
   if (func != nullptr){
@@ -37,6 +38,7 @@ VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMes
   }
   return VK_ERROR_EXTENSION_NOT_PRESENT;
 }
+
 
 void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator){
   auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
@@ -322,11 +324,13 @@ class HelloTriangleApplication{
       createCommandBuffer();
       createSyncObjects();
     }
-
+    
     void createSyncObjects(){
+      //Create a semaphore on the GPU to ensure we keep our instruction queues in order.
       VkSemaphoreCreateInfo semaphoreInfo{};
       semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
+      //Create a fence to make sure the CPU/GPU stay in sync when sending/recieving commands.
       VkFenceCreateInfo fenceInfo{};
       fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
       fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
@@ -334,11 +338,12 @@ class HelloTriangleApplication{
       if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
         vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS ||
         vkCreateFence(device, &fenceInfo, nullptr, &inFlightFence) != VK_SUCCESS){
-        throw std::runtime_error("failed to create synchronization objects for a frame!");
+        throw std::runtime_error("Failed to create semaphore/fence objects for a frame!");
       }
     }
-
+    
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex){
+      //Set up a data structure for recording the the command buffer.
       VkCommandBufferBeginInfo beginInfo{};
       beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
       beginInfo.flags = 0;
@@ -346,21 +351,25 @@ class HelloTriangleApplication{
       if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS){
         throw std::runtime_error("Failed to begin recording command buffer!");
       }
-
+      
+      //Set up the render area that we're going to be using to record the inputs from the command buffer.
       VkRenderPassBeginInfo renderPassInfo{};
       renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
       renderPassInfo.renderPass = renderPass;
       renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
       renderPassInfo.renderArea.offset = {0, 0};
       renderPassInfo.renderArea.extent = swapChainExtent;
-
+      
+      //Set our color for parts of the screen not being taken up by triangles/effects.
       VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
       renderPassInfo.clearValueCount = 1;
       renderPassInfo.pClearValues = &clearColor;
 
+      //Combine our pipeline with the command buffer.
       vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
       vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
+      
+      //Initialize the viewport that we are going to be displaying in (using the info from our swap chain).
       VkViewport viewport{};
       viewport.x = 0.0f;
       viewport.y = 0.0f;
@@ -374,7 +383,8 @@ class HelloTriangleApplication{
       scissor.offset = {0, 0};
       scissor.extent = swapChainExtent;
       vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
+      
+      //Start drawing our triangle!
       vkCmdDraw(commandBuffer, 3, 1, 0, 0);
       vkCmdEndRenderPass(commandBuffer);
 
@@ -384,17 +394,20 @@ class HelloTriangleApplication{
     }
 
     void createCommandBuffer(){
+      //Initialize our command buffer.
       VkCommandBufferAllocateInfo allocInfo{};
       allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
       allocInfo.commandPool = commandPool;
       allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+      //We're only using one command buffer for this engine.
       allocInfo.commandBufferCount = 1;
       if (vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("Failed to allocate command buffers!");
       }
     }
 
-    void createCommandPool() {
+    void createCommandPool(){
+      //Initialize our command pool, this manages the memory that feeds our command buffer.
       QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
       VkCommandPoolCreateInfo poolInfo{};
       poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -407,6 +420,7 @@ class HelloTriangleApplication{
     }
 
     void createRenderPass(){
+      //Initialize our color information.
       VkAttachmentDescription colorAttachment{};
       colorAttachment.format = swapChainImageFormat;
       colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -432,7 +446,8 @@ class HelloTriangleApplication{
       dependency.srcAccessMask = 0;
       dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
       dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
+      
+      //Initialize all of the information about subpasses in our rendering model.
       VkRenderPassCreateInfo renderPassInfo{};
       renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
       renderPassInfo.attachmentCount = 1;
@@ -454,7 +469,8 @@ class HelloTriangleApplication{
       //Create vertex shader stage.
       VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
       VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
-
+      
+      //Create the stage for both vertex and fragment shaders.
       VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
       vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
       vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -466,7 +482,7 @@ class HelloTriangleApplication{
       fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
       fragShaderStageInfo.module = fragShaderModule;
       fragShaderStageInfo.pName = "main";
-
+      
       VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
       VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -481,12 +497,14 @@ class HelloTriangleApplication{
       inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
       inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
       inputAssembly.primitiveRestartEnable = VK_FALSE;
-
+      
+      //Specify our viewport information in the pipeline.
       VkPipelineViewportStateCreateInfo viewportState{};
       viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
       viewportState.viewportCount = 1;
       viewportState.scissorCount = 1;
-
+      
+      //Set up how our rasterizer will draw polygons (fill), among other details.
       VkPipelineRasterizationStateCreateInfo rasterizer{};
       rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
       rasterizer.depthClampEnable = VK_FALSE;
@@ -498,6 +516,7 @@ class HelloTriangleApplication{
       rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
       rasterizer.depthBiasEnable = VK_FALSE;
 
+      //Set up our multisampling details, will implement later.
       VkPipelineMultisampleStateCreateInfo multisampling{};
       multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
       multisampling.sampleShadingEnable = VK_FALSE;
@@ -530,7 +549,8 @@ class HelloTriangleApplication{
       dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
       dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
       dynamicState.pDynamicStates = dynamicStates.data();
-
+      
+      //Finalize the pipeline layout.
       VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
       pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
       pipelineLayoutInfo.setLayoutCount = 0;
@@ -544,7 +564,8 @@ class HelloTriangleApplication{
       pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
       pipelineInfo.stageCount = 2;
       pipelineInfo.pStages = shaderStages;
-
+      
+      //Push all of our initialized information into a pipeline data structure.
       pipelineInfo.pVertexInputState = &vertexInputInfo;
       pipelineInfo.pInputAssemblyState = &inputAssembly;
       pipelineInfo.pViewportState = &viewportState;
@@ -571,6 +592,7 @@ class HelloTriangleApplication{
     }
     
     VkShaderModule createShaderModule(const std::vector<char>& code) {
+      //Read in a compiled shader and pack it into a shader module for our engine.
       VkShaderModuleCreateInfo createInfo{};
       createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
       createInfo.codeSize = code.size();
@@ -583,13 +605,14 @@ class HelloTriangleApplication{
     }
 
     void createLogicalDevice(){
+      //Create a logical device for Vulkan to target from our phyisical GPU.
       QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
       std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
       std::set<uint32_t> uniqueQueueFamilies = {
         indices.graphicsFamily.value(),
         indices.presentFamily.value()
       };
-
+      
       float queuePriority = 1.0f;
       for (uint32_t queueFamily : uniqueQueueFamilies){
         VkDeviceQueueCreateInfo queueCreateInfo{};
@@ -608,6 +631,7 @@ class HelloTriangleApplication{
       createInfo.pQueueCreateInfos = queueCreateInfos.data();
       createInfo.pEnabledFeatures = &deviceFeatures;
       
+      //Acquire our GPUs extensions.
       createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
       createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
@@ -630,13 +654,15 @@ class HelloTriangleApplication{
       return availableFormats[0];
     }
     
-    void createSurface() {
+    void createSurface(){
+      //Create a window surface using GLFW.
       if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create window surface!");
       }
     }
     
-    void createSwapChain() {
+    void createSwapChain(){
+      //Test if our device is capable of displaying a swapchain.
       SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
       VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
       VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
@@ -644,9 +670,10 @@ class HelloTriangleApplication{
       uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
 
       if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount){
-            imageCount = swapChainSupport.capabilities.maxImageCount;
+        imageCount = swapChainSupport.capabilities.maxImageCount;
       }
 
+      //Initialize our swapchain with on our GPU with our data.
       VkSwapchainCreateInfoKHR createInfo{};
       createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
       createInfo.surface = surface;
@@ -686,15 +713,17 @@ class HelloTriangleApplication{
     }
 
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes){
-      for (const auto& availablePresentMode : availablePresentModes){
+     //Query for available present modes on the swap chain, if nothing return first in first out. 
+     for (const auto& availablePresentMode : availablePresentModes){
         if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR){
             return availablePresentMode;
         }
       }
       return VK_PRESENT_MODE_FIFO_KHR;
     }
-
+    
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities){
+      //Load up our swapchain with our resolution, if it is supported.
       if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()){
         return capabilities.currentExtent;
       } 
@@ -713,6 +742,7 @@ class HelloTriangleApplication{
     }
     
     void createImageViews(){
+      //Initialize our swap chain image view with color data.
       swapChainImageViews.resize(swapChainImages.size());
       for (size_t i = 0; i < swapChainImages.size(); i++){
         VkImageViewCreateInfo createInfo{};
@@ -738,6 +768,7 @@ class HelloTriangleApplication{
     
 
     void createFramebuffers() {
+      //Create a framebuffer that matches our swapchain.
       swapChainFramebuffers.resize(swapChainImageViews.size());
 
       for (size_t i = 0; i < swapChainImageViews.size(); i++){
@@ -775,6 +806,7 @@ class HelloTriangleApplication{
     }
 
     void mainLoop(){
+      //Check for user input and keep drawing frames until user exits.
       while(!glfwWindowShouldClose(window)){
         glfwPollEvents();
         drawFrame();
@@ -784,16 +816,18 @@ class HelloTriangleApplication{
 
     
     void drawFrame(){
+      //Wait for the CPU to send instructions.
       vkWaitForFences(device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
       vkResetFences(device, 1, &inFlightFence);
-
+      
       uint32_t imageIndex;
       vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
       vkResetCommandBuffer(commandBuffer, 0);
       recordCommandBuffer(commandBuffer, imageIndex);
       VkSubmitInfo submitInfo{};
       submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
+      
+      //Wait for our turn in the command buffer, then write to it.
       VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
       VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
       submitInfo.waitSemaphoreCount = 1;
@@ -809,6 +843,7 @@ class HelloTriangleApplication{
         throw std::runtime_error("Failed to draw to command buffer!");
       }
 
+      //Present our frame to the display!
       VkPresentInfoKHR presentInfo{};
       presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
       presentInfo.waitSemaphoreCount = 1;
@@ -822,6 +857,7 @@ class HelloTriangleApplication{
     }
 
     void cleanup(){
+      //Remove all of our data structures from memory and kill our GLFW instance.
       vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
       vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
       vkDestroyFence(device, inFlightFence, nullptr);
@@ -854,6 +890,5 @@ int main(){
     return EXIT_FAILURE;
   
   }
-
   return EXIT_SUCCESS;
 }
