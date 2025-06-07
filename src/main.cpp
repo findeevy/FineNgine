@@ -779,6 +779,7 @@ class HelloTriangleApplication{
         glfwPollEvents();
         drawFrame();
       }
+      vkDeviceWaitIdle(device);
     }
 
     
