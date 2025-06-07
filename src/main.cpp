@@ -1,6 +1,4 @@
 #define GLFW_INCLUDE_VULKAN
-#define VK_USE_PLATFORM_WIN32_KHR
-#define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <iostream>
@@ -46,12 +44,6 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
     func(instance, debugMessenger, pAllocator);
   }
 }
-
-struct SwapChainSupportDetails {
-  VkSurfaceCapabilitiesKHR capabilities;
-  std::vector<VkSurfaceFormatKHR> formats;
-  std::vector<VkPresentModeKHR> presentModes;
-};
 
 struct QueueFamilyIndices {
   std::optional<uint32_t> graphicsFamily;
@@ -115,7 +107,7 @@ class HelloTriangleApplication{
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT){
           indices.graphicsFamily = i;
         }
-        VkBool32 presentSuppor t = false;
+        VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
         if (presentSupport){
           indices.presentFamily = i;
@@ -222,10 +214,10 @@ class HelloTriangleApplication{
     }
 
     void createInstance(){
-      if (enableValidationLayers && !checkValidationLayerSupport()){
-        throw std::runtime_error("validation layers requested, but not available!");
+      if (enableValidationLayers && !checkValidationLayerSupport()) {
+          throw std::runtime_error("Validation are not available!");
       }
-      //Info to set up the Vulkan application.
+
       VkApplicationInfo appInfo{};
       appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
       appInfo.pApplicationName = "Finengine";
@@ -233,56 +225,31 @@ class HelloTriangleApplication{
       appInfo.pEngineName = "No Engine";
       appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
       appInfo.apiVersion = VK_API_VERSION_1_0;
-      
-      //Info to set up the Vulkan driver's extensions and validation layers.
+
       VkInstanceCreateInfo createInfo{};
       createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-      
-      //Pipe our application info into the creation info via a pointer.
       createInfo.pApplicationInfo = &appInfo;
 
-      //Extension handling.
-      auto glfwExtensions = getRequiredExtensions();
-      createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-      createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+      auto extensions = getRequiredExtensions();
+      createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+      createInfo.ppEnabledExtensionNames = extensions.data();
 
       VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-      if (enableValidationLayers) {
+      if (enableValidationLayers){
         createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         createInfo.ppEnabledLayerNames = validationLayers.data();
 
         populateDebugMessengerCreateInfo(debugCreateInfo);
         createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
       } 
-      else {
+      else{
         createInfo.enabledLayerCount = 0;
 
         createInfo.pNext = nullptr;
       }
 
-      if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create instance!");
-      }
-
-      //Extensions
-      uint32_t extensionCount = 0;
-      vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-      //Allocate an array told the details.
-      std::vector<VkExtensionProperties> extensions(extensionCount);
-      vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-      std::cout << "Available Support Extensions:\n";
-      //Iterate through the extensions.
-      for (const auto& extension : extensions){
-        std::cout << '\t' << extension.extensionName << '\n';
-      }
-
-      //Initiate the validation layers.
-      if (enableValidationLayers){
-        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-	createInfo.ppEnabledLayerNames = validationLayers.data();
-      }
-      else{
-        createInfo.enabledLayerCount = 0;
+      if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create instance!");
       }
     }
     
@@ -314,7 +281,7 @@ class HelloTriangleApplication{
 
     
     //Maybe later allow the user to change GPU?
-    void pickPhysicalDevice(){
+    void pickGraphicsCard(){
       uint32_t deviceCount = 0;
       vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
       //If there is no GPU, return an error.
@@ -339,6 +306,7 @@ class HelloTriangleApplication{
       createInstance();
       //Set up validation layers and appropriate debug reporting.
       setupDebugMessenger();
+      createSurface();
       //Select a physical graphics card.
       pickGraphicsCard();
       //Select a logical GPU.
@@ -430,7 +398,7 @@ class HelloTriangleApplication{
       QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
       VkCommandPoolCreateInfo poolInfo{};
       poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-      poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
+      poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
       poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
       if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS){
@@ -444,21 +412,37 @@ class HelloTriangleApplication{
       colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
       colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
       colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+      colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+      colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
       colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
       colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+      VkAttachmentReference colorAttachmentRef{};
+      colorAttachmentRef.attachment = 0;
+      colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
       VkSubpassDescription subpass{};
       subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
       subpass.colorAttachmentCount = 1;
       subpass.pColorAttachments = &colorAttachmentRef;
-      
+
+      VkSubpassDependency dependency{};
+      dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+      dependency.dstSubpass = 0;
+      dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+      dependency.srcAccessMask = 0;
+      dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+      dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
       VkRenderPassCreateInfo renderPassInfo{};
       renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
       renderPassInfo.attachmentCount = 1;
       renderPassInfo.pAttachments = &colorAttachment;
       renderPassInfo.subpassCount = 1;
       renderPassInfo.pSubpasses = &subpass;
-      if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+      renderPassInfo.dependencyCount = 1;
+      renderPassInfo.pDependencies = &dependency;
+
+      if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS){
         throw std::runtime_error("Failed to create render pass!");
       }
     }
@@ -621,21 +605,11 @@ class HelloTriangleApplication{
       VkDeviceCreateInfo createInfo{};
       createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
       createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-
       createInfo.pQueueCreateInfos = queueCreateInfos.data();
-      createInfo.pQueueCreateInfos = &queueCreateInfo;
-
-      createInfo.queueCreateInfoCount = 1;
       createInfo.pEnabledFeatures = &deviceFeatures;
-       createInfo.enabledExtensionCount = 0;
-
-      if (enableValidationLayers){
-        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-        createInfo.ppEnabledLayerNames = validationLayers.data();
-      } 
-      else{
-        createInfo.enabledLayerCount = 0;
-      }
+      
+      createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+      createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
       if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS){
         throw std::runtime_error("Failed to create logical device!");
@@ -655,7 +629,13 @@ class HelloTriangleApplication{
 
       return availableFormats[0];
     }
-
+    
+    void createSurface() {
+      if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create window surface!");
+      }
+    }
+    
     void createSwapChain() {
       SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
       VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
@@ -732,7 +712,7 @@ class HelloTriangleApplication{
       }
     }
     
-    void createImageViews{
+    void createImageViews(){
       swapChainImageViews.resize(swapChainImages.size());
       for (size_t i = 0; i < swapChainImages.size(); i++){
         VkImageViewCreateInfo createInfo{};
@@ -801,9 +781,43 @@ class HelloTriangleApplication{
       }
     }
 
+    
     void drawFrame(){
       vkWaitForFences(device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
       vkResetFences(device, 1, &inFlightFence);
+
+      uint32_t imageIndex;
+      vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+      vkResetCommandBuffer(commandBuffer, 0);
+      recordCommandBuffer(commandBuffer, imageIndex);
+      VkSubmitInfo submitInfo{};
+      submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+      VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
+      VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+      submitInfo.waitSemaphoreCount = 1;
+      submitInfo.pWaitSemaphores = waitSemaphores;
+      submitInfo.pWaitDstStageMask = waitStages;
+      submitInfo.commandBufferCount = 1;
+      submitInfo.pCommandBuffers = &commandBuffer;
+      VkSemaphore signalSemaphores[] = {renderFinishedSemaphore};
+      submitInfo.signalSemaphoreCount = 1;
+      submitInfo.pSignalSemaphores = signalSemaphores;
+
+      if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFence) != VK_SUCCESS){
+        throw std::runtime_error("Failed to draw to command buffer!");
+      }
+
+      VkPresentInfoKHR presentInfo{};
+      presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+      presentInfo.waitSemaphoreCount = 1;
+      presentInfo.pWaitSemaphores = signalSemaphores;
+      VkSwapchainKHR swapChains[] = {swapChain};
+      presentInfo.swapchainCount = 1;
+      presentInfo.pSwapchains = swapChains;
+
+      presentInfo.pImageIndices = &imageIndex;
+      vkQueuePresentKHR(presentQueue, &presentInfo);
     }
 
     void cleanup(){
