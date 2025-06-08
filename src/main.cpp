@@ -97,11 +97,14 @@ class HelloTriangleApplication{
     VkCommandBuffer commandBuffer;
     VkSemaphore imageAvailableSemaphore;
     VkSemaphore renderFinishedSemaphore;
+
     VkFence inFlightFence;
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
+
     uint32_t currentFrame = 0;
+    bool framebufferResized = false;
 
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
       QueueFamilyIndices indices;
@@ -217,9 +220,15 @@ class HelloTriangleApplication{
       glfwInit();
 
       glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-      glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
       window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+      glfwSetWindowUserPointer(window, this);
+      glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+    }
+
+    static void framebufferResizeCallback(GLFWwindow* window, int width, int height){
+      auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+      app->framebufferResized = true;
     }
 
     void createInstance(){
@@ -770,6 +779,7 @@ class HelloTriangleApplication{
       int width = 0; 
       int height = 0;
       glfwGetFramebufferSize(window, &width, &height);
+      //Check for minimization.
       while (width == 0 || height == 0) {
         glfwGetFramebufferSize(window, &width, &height);
         glfwWaitEvents();
