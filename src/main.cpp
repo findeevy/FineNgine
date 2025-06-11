@@ -394,34 +394,80 @@ class HelloTriangleApplication{
 
       throw std::runtime_error("Failed to find suitable memory type!");
     }
-    void createVertexBuffer() {
-        VkBufferCreateInfo bufferInfo{};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = sizeof(vertices[0]) * vertices.size();
-        bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
-          throw std::runtime_error("Failed to create vertex buffer!");
-        }
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory){
+      VkBufferCreateInfo bufferInfo{};
+      bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+      bufferInfo.size = size;
+      bufferInfo.usage = usage;
+      bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-      if (vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to allocate vertex buffer memory!");
+      if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create buffer!");
       }
 
-      vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+      VkMemoryRequirements memRequirements;
+      vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+
+      VkMemoryAllocateInfo allocInfo{};
+      allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+      allocInfo.allocationSize = memRequirements.size;
+      allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+      if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS){
+        throw std::runtime_error("Failed to allocate buffer memory!");
+      }
+      vkBindBufferMemory(device, buffer, bufferMemory, 0);
+    }
+
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size){
+      VkCommandBufferAllocateInfo allocInfo{};
+      allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+      allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+      allocInfo.commandPool = commandPool;
+      allocInfo.commandBufferCount = 1;
+
+      VkCommandBuffer commandBuffer;
+      vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+      VkCommandBufferBeginInfo beginInfo{};
+      beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+      beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+      vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+      VkBufferCopy copyRegion{};
+      copyRegion.size = size;
+      vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+      vkEndCommandBuffer(commandBuffer);
+      VkSubmitInfo submitInfo{};
+      submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+      submitInfo.commandBufferCount = 1;
+      submitInfo.pCommandBuffers = &commandBuffer;
+    
+      //Try and use fence in future?
+      vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+      vkQueueWaitIdle(graphicsQueue);
+
+      vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+    }
+
+    void createVertexBuffer() {
+      VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+      //Staging Buffer (CPU accessible)
+      VkBuffer stagingBuffer;
+      VkDeviceMemory stagingBufferMemory;
+      createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
       void* data;
-      vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-      memcpy(data, vertices.data(), (size_t) bufferInfo.size);
-      vkUnmapMemory(device, vertexBufferMemory);
+      vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+      memcpy(data, vertices.data(), (size_t) bufferSize);
+      vkUnmapMemory(device, stagingBufferMemory);
+      //Vertex Buffer (GPU bound)
+      createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+      copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+      vkDestroyBuffer(device, stagingBuffer, nullptr);
+      vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
     
     void createSyncObjects(){
@@ -473,6 +519,13 @@ class HelloTriangleApplication{
       vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
       vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
       
+      VkBuffer vertexBuffers[] = {vertexBuffer};
+      VkDeviceSize offsets[] = {0};
+      vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+      vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1,
+0, 0);     
+
+ 
       //Initialize the viewport that we are going to be displaying in (using the info from our swap chain).
       VkViewport viewport{};
       viewport.x = 0.0f;
@@ -1027,6 +1080,7 @@ class HelloTriangleApplication{
     void cleanup(){
       cleanupSwapChain();
       vkDestroyBuffer(device, vertexBuffer, nullptr);
+      vkFreeMemory(device, vertexBufferMemory, nullptr);
       for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) { 
 	vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
