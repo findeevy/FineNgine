@@ -66,6 +66,12 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+struct UniformBufferObject {
+  glm::mat4 model;
+  glm::mat4 view;
+  glm::mat4 proj;
+};
+
 struct Vertex {
     glm::vec2 pos;
     glm::vec3 color;
@@ -151,6 +157,12 @@ class HelloTriangleApplication{
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
 
+    std::vector<VkBuffer> uniformBuffers;
+    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<void*> uniformBuffersMapped;
+
+    VkDescriptorSetLayout descriptorSetLayout;
+    VkPipelineLayout pipelineLayout;
 
     uint32_t currentFrame = 0;
     bool framebufferResized = false;
@@ -383,11 +395,13 @@ class HelloTriangleApplication{
       //Create place to put our frames.
       createImageViews();
       createRenderPass();
+      createDescriptorSetLayout();
       createGraphicsPipeline();
       createFramebuffers();
       createCommandPool();
       createVertexBuffer();
       createIndexBuffer();
+      createUniformBuffers();
       createCommandBuffer();
       createSyncObjects();
     }
@@ -402,6 +416,36 @@ class HelloTriangleApplication{
       }
 
       throw std::runtime_error("Failed to find suitable memory type!");
+    }
+
+    void createUniformBuffers(){
+      VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+      uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+      uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+      uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+      for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+        vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+      }
+    }
+
+
+    void createDescriptorSetLayout() {
+      VkDescriptorSetLayoutBinding uboLayoutBinding{};
+      uboLayoutBinding.binding = 0;
+      uboLayoutBinding.descriptorCount = 1;
+      uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+      uboLayoutBinding.pImmutableSamplers = nullptr;
+      uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+      VkDescriptorSetLayoutCreateInfo layoutInfo{};
+      layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+      layoutInfo.bindingCount = 1;
+      layoutInfo.pBindings = &uboLayoutBinding;
+
+      if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create descriptor set layout!");
+      }
     }
 
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory){
@@ -1107,6 +1151,8 @@ class HelloTriangleApplication{
 
     void cleanup(){
       cleanupSwapChain();
+
+      vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
       vkDestroyBuffer(device, indexBuffer, nullptr);
       vkFreeMemory(device, indexBufferMemory, nullptr);
