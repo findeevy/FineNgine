@@ -1,4 +1,7 @@
 #define GLFW_INCLUDE_VULKAN
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#include <glm/glm.hpp>
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <iostream>
@@ -66,6 +69,7 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+//183
 struct UniformBufferObject {
   glm::mat4 model;
   glm::mat4 view;
@@ -156,6 +160,9 @@ class HelloTriangleApplication{
     VkDeviceMemory vertexBufferMemory;
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
+
+    VkDescriptorPool descriptorPool;
+    std::vector<VkDescriptorSet> descriptorSets;
 
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
@@ -402,8 +409,54 @@ class HelloTriangleApplication{
       createVertexBuffer();
       createIndexBuffer();
       createUniformBuffers();
+      createDescriptorPool();
+      createDescriptorSets();
       createCommandBuffer();
       createSyncObjects();
+    }
+
+    void createDescriptorSets() {
+      std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
+      VkDescriptorSetAllocateInfo allocInfo{};
+      allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+      allocInfo.descriptorPool = descriptorPool;
+      allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+      allocInfo.pSetLayouts = layouts.data();
+      descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+      if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS){
+        throw std::runtime_error("Failed to allocate descriptor sets!");
+      }
+
+      for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = uniformBuffers[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
+        VkWriteDescriptorSet descriptorWrite{};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = descriptorSets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pBufferInfo = &bufferInfo;
+        vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+      }
+    }
+
+    void createDescriptorPool(){
+      VkDescriptorPoolSize poolSize{};
+      poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+      poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+      VkDescriptorPoolCreateInfo poolInfo{};
+      poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+      poolInfo.poolSizeCount = 1;
+      poolInfo.pPoolSizes = &poolSize;
+      poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+      if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create descriptor pool!");
+      }
     }
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
@@ -614,7 +667,9 @@ class HelloTriangleApplication{
       vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
       
       //Start drawing our triangle!
-      vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+      vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+      vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+      vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
       vkCmdEndRenderPass(commandBuffer);
 
       if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS){
@@ -755,7 +810,7 @@ class HelloTriangleApplication{
       
       rasterizer.lineWidth = 1.0f;
       rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-      rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+      rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
       rasterizer.depthBiasEnable = VK_FALSE;
 
       //Set up our multisampling details, will implement later.
@@ -1107,6 +1162,8 @@ class HelloTriangleApplication{
       //Wait for our turn in the command buffer, then write to it.
       vkResetCommandBuffer(commandBuffers[currentFrame], 0);
       recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+      
+      updateUniformBuffer(currentFrame);
 
       VkSubmitInfo submitInfo{};
       submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1149,8 +1206,27 @@ class HelloTriangleApplication{
       currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
+
+    void updateUniformBuffer(uint32_t currentImage){
+      static auto startTime = std::chrono::high_resolution_clock::now();
+
+      auto currentTime = std::chrono::high_resolution_clock::now();
+      float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+      UniformBufferObject ubo{};
+      ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+      ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+      ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+      ubo.proj[1][1] *= -1;
+      memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+    }
+
     void cleanup(){
       cleanupSwapChain();
+
+      for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+        vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+      }
 
       vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
