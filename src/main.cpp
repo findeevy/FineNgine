@@ -2,7 +2,7 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include <stb/stb_image.h>
 #include <glm/glm.hpp>
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
