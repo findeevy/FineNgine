@@ -171,7 +171,6 @@ class HelloTriangleApplication{
     std::vector<void*> uniformBuffersMapped;
 
     VkDescriptorSetLayout descriptorSetLayout;
-    VkPipelineLayout pipelineLayout;
 
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
@@ -915,6 +914,10 @@ void createTextureImage(){
       fragShaderStageInfo.pName = "main";
       
       VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+      VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+      vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
       auto bindingDescription = Vertex::getBindingDescription();
       auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
@@ -1185,11 +1188,11 @@ void createTextureImage(){
     }
     
     void cleanupSwapChain(){
-      for (size_t i = 0; i < swapChainFramebuffers.size(); i++)
+      for (size_t i = 0; i < swapChainFramebuffers.size(); i++){
         vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
       }
 
-      for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+      for (size_t i = 0; i < swapChainImageViews.size(); i++){
         vkDestroyImageView(device, swapChainImageViews[i], nullptr);
       }
 
