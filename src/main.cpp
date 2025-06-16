@@ -4,6 +4,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <iostream>
@@ -17,8 +18,8 @@
 #include <limits>
 #include <algorithm>
 #include <fstream>
-#include <glm/glm.hpp>
 #include <array>
+#include <chrono>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -930,19 +931,6 @@ void createTextureImage(){
       inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
       inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
       inputAssembly.primitiveRestartEnable = VK_FALSE;
-
-      VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-      vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-      
-      vertexInputInfo.vertexBindingDescriptionCount = 0;
-      vertexInputInfo.pVertexBindingDescriptions = nullptr;
-      vertexInputInfo.vertexAttributeDescriptionCount = 0;
-      vertexInputInfo.pVertexAttributeDescriptions = nullptr;
-
-      VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-      inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-      inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-      inputAssembly.primitiveRestartEnable = VK_FALSE;
       
       //Specify our viewport information in the pipeline.
       VkPipelineViewportStateCreateInfo viewportState{};
@@ -1300,7 +1288,7 @@ void createTextureImage(){
       vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
       uint32_t imageIndex;
-      vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+      VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
      
       if (result == VK_ERROR_OUT_OF_DATE_KHR){
         recreateSwapChain();
