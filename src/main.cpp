@@ -73,15 +73,8 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-//183
-struct UniformBufferObject {
-  glm::mat4 model;
-  glm::mat4 view;
-  glm::mat4 proj;
-};
-
 struct Vertex {
-    glm::vec2 pos;
+    glm::vec3 pos;
     glm::vec3 color;
     glm::vec2 texCoord;
 
@@ -117,11 +110,18 @@ struct Vertex {
 };
 
 
+struct UniformBufferObject {
+  alignas(16) glm::mat4 model;
+  alignas(16) glm::mat4 view;
+  alignas(16) glm::mat4 proj;
+};
+
 const std::vector<Vertex> vertices = {
   {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
   {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
   {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
   {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+
   {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
   {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
   {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
@@ -129,7 +129,8 @@ const std::vector<Vertex> vertices = {
 };
 
 const std::vector<uint16_t> indices = {
-  0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4
+  0, 1, 2, 2, 3, 0,
+  4, 5, 6, 6, 7, 4
 };
 
 class HelloTriangleApplication{
@@ -175,6 +176,11 @@ class HelloTriangleApplication{
     VkDeviceMemory vertexBufferMemory;
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
+
+    VkImage depthImage;
+    VkDeviceMemory depthImageMemory;
+    VkImageView depthImageView;
+    VkSampler textureSampler;
 
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
@@ -1015,22 +1021,6 @@ void createTextureImage(){
       }
     }
 
-    void recreateSwapChain(){
-      int width = 0, height = 0;
-      glfwGetFramebufferSize(window, &width, &height);
-      while (width == 0 || height == 0){
-        glfwGetFramebufferSize(window, &width, &height);
-        glfwWaitEvents();
-      }
-
-      vkDeviceWaitIdle(device);
-      cleanupSwapChain();
-      createSwapChain();
-      createImageViews();
-      createFramebuffers();
-    }
-
-
     void createGraphicsPipeline() {
       //Loading fragment and vertex shaders.
       auto vertShaderCode = readFile("shaders/vert.spv");
@@ -1358,23 +1348,22 @@ void createTextureImage(){
     void createImageViews() {
       swapChainImageViews.resize(swapChainImages.size());
       for (size_t i = 0; i < swapChainImages.size(); i++){
-          swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat);
+        swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
       }
     }
     
-    VkImageView createImageView(VkImage image, VkFormat format){
+    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags){
       VkImageViewCreateInfo viewInfo{};
       viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
       viewInfo.image = image;
-      viewInfo.subresourceRange.aspectMask = aspectFlags;
       viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
       viewInfo.format = format;
-      viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      viewInfo.subresourceRange.aspectMask = aspectFlags;
       viewInfo.subresourceRange.baseMipLevel = 0;
       viewInfo.subresourceRange.levelCount = 1;
       viewInfo.subresourceRange.baseArrayLayer = 0;
       viewInfo.subresourceRange.layerCount = 1;
-      VkImageView imageView;
+      
       if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS){
           throw std::runtime_error("Failed to create image view!");
       }
