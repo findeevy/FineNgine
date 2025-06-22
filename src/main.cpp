@@ -1007,10 +1007,11 @@ void createTextureImage(){
       dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
       
       //Initialize all of the information about subpasses in our rendering model.
+      std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
       VkRenderPassCreateInfo renderPassInfo{};
       renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-      renderPassInfo.attachmentCount = 1;
-      renderPassInfo.pAttachments = &colorAttachment;
+      renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+      renderPassInfo.pAttachments = attachments.data();
       renderPassInfo.subpassCount = 1;
       renderPassInfo.pSubpasses = &subpass;
       renderPassInfo.dependencyCount = 1;
@@ -1364,6 +1365,7 @@ void createTextureImage(){
       viewInfo.subresourceRange.baseArrayLayer = 0;
       viewInfo.subresourceRange.layerCount = 1;
       
+      VkImageView imageView;
       if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS){
           throw std::runtime_error("Failed to create image view!");
       }
@@ -1372,7 +1374,7 @@ void createTextureImage(){
     }
 
     void createTextureImageView(){
-      textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
+      textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 
 
