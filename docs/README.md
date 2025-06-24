@@ -4,6 +4,9 @@ Vulkan and C++ based modern real time GPU based 3D rendering engine.
 ## Sample Output:
 ![Rotating Grass Tiles](zbuffer.gif)
 
+## Compilation:
+Run the makefile after installing the dependencies (listed below). Must have GCC (or other C++ compiler, although I have not tested any others).
+
 ## Features:
 -Fragment/vertex shader support.\
 -Window resizing.\
@@ -14,3 +17,9 @@ Vulkan and C++ based modern real time GPU based 3D rendering engine.
 -Swap chain and frame buffer management.\
 -CPU/GPU synchronization.\
 -Error checking.
+
+## Dependencies:
+- [Vulkan](https://www.vulkan.org)
+- [GLM](https://github.com/g-truc/glm)
+- [STB](https://github.com/nothings/stb)
+- [GLFW](https://www.glfw.org)
