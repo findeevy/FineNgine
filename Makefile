@@ -1,13 +1,13 @@
 CFLAGS = -std=c++17 -O3
 LDFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
-VulkanTest: src/main.cpp
-	g++ $(CFLAGS) -o VulkanTest src/main.cpp $(LDFLAGS)
+FineNgine: src/main.cpp
+	g++ $(CFLAGS) -o FineNgine src/main.cpp $(LDFLAGS)
 
 .PHONY: test clean
 
-test: VulkanTest
-	./VulkanTest
+test: FineNgine
+	./FineNgine
 
 clean:
-	rm -f VulkanTest
+	rm -f FineNgine
