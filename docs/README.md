@@ -1,6 +1,9 @@
 ## Finengine
 Vulkan and C++ based modern real time GPU based 3D rendering engine.
 
+## Sample Output:
+![Rotating Grass Tiles](zbuffer.gif)
+
 ## Features:
 -Fragment/vertex shader support.\
 -Window resizing.\
