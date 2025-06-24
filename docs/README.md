@@ -26,7 +26,3 @@ Run the makefile after installing the [dependencies](#dependencies). Also make s
 - [STB](https://github.com/nothings/stb)
 - [GLFW](https://www.glfw.org)
 - [TinyObjLoader](https://github.com/tinyobjloader/tinyobjloader)
-<<<<<<< HEAD
-
-=======
->>>>>>> 743ce5c8ed457463656e27f2269e82029f1b9a6e
