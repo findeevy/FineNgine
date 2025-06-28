@@ -2,3 +2,4 @@
 *VulkanTest
 *.spv
 *FineNgine
+*.o

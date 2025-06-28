@@ -1,13 +1,19 @@
-CFLAGS = -std=c++17 -O3
-LDFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
+CXX := g++
+CXXFLAGS := -std=c++17 -Wall -Wextra -O3
+LDFLAGS :=  -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
+TARGET := FineNgine
+SRC_DIR := src
 
-FineNgine: src/main.cpp
-	g++ $(CFLAGS) -o FineNgine src/main.cpp $(LDFLAGS)
+SRCS := $(SRC_DIR)/main.cpp $(SRC_DIR)/render.cpp
+OBJS := $(SRCS:.cpp=.o)
 
-.PHONY: test clean
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
-test: FineNgine
-	./FineNgine
+$(SRC_DIR)/%.o: $(SRC_DIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f FineNgine
+	rm -f $(TARGET) $(OBJS)
+
+.PHONY: clean
