@@ -9,6 +9,7 @@ Run the makefile after installing the [dependencies](#dependencies). Also make s
 - Fragment/vertex shader support.
 - Window resizing.
 - Texture mapping.
+- Multi-sampling (MSAA).
 - Mipmaps (Level of detail scaling on textures).
 - Depth buffer (Z-depth).
 - Discrete graphics device selection.
