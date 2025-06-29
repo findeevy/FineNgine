@@ -88,12 +88,14 @@ private:
   void createTextureImage();
   void createTextureImageView();
   void createTextureSampler();
+  VkSampleCountFlagBits getMaxUsableSampleCount();
   void loadModel();
   void createVertexBuffer();
   void createIndexBuffer();
   void createUniformBuffers();
   void createDescriptorPool();
   void createDescriptorSets();
+  void createColorResources();
   void createCommandBuffer();
   void createSyncObjects();
   void drawFrame();

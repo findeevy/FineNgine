@@ -635,7 +635,7 @@ void FineNgine::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t tex
   endSingleTimeCommands(commandBuffer);
 }
 
-VkSampleCountFlagBits getMaxUsableSampleCount() {
+VkSampleCountFlagBits FineNgine::getMaxUsableSampleCount() {
   VkPhysicalDeviceProperties physicalDeviceProperties;
   vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
 
