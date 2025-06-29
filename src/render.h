@@ -1,4 +1,5 @@
 #pragma once
+
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -20,13 +21,14 @@
 #include <chrono>
 #include <unordered_map>
 
-#include <tiny_obj_loader.h>
-#include <stb/stb_image.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
+
+#include <tiny_obj_loader.h>
+#include <stb/stb_image.h>
 
 struct QueueFamilyIndices {
   std::optional<uint32_t> graphicsFamily;
@@ -116,8 +118,6 @@ private:
   VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
   VkShaderModule createShaderModule(const std::vector<char>& code);
   VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
-  void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-  void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
   void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
   void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
   void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
@@ -127,9 +127,6 @@ private:
   static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
   static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
   static std::vector<char> readFile(const std::string& filename);
-  VkCommandBuffer beginSingleTimeCommands();
-  void endSingleTimeCommands(VkCommandBuffer commandBuffer);
-  uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
   bool hasStencilComponent(VkFormat format);
 
   GLFWwindow* window;

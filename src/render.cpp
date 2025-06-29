@@ -1,6 +1,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define TINYOBJLOADER_IMPLEMENTATION
+
 #include "render.h"
+#include "utils.h"
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -457,36 +459,6 @@ void FineNgine::createTextureSampler(){
   }
 }
 
-VkCommandBuffer FineNgine::beginSingleTimeCommands(){
-  VkCommandBufferAllocateInfo allocInfo{};
-  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  allocInfo.commandPool = commandPool;
-  allocInfo.commandBufferCount = 1;
-
-  VkCommandBuffer commandBuffer;
-  vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-  VkCommandBufferBeginInfo beginInfo{};
-  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-  return commandBuffer;
-}
-
-void FineNgine::endSingleTimeCommands(VkCommandBuffer commandBuffer){
-  vkEndCommandBuffer(commandBuffer);
-
-  VkSubmitInfo submitInfo{};
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &commandBuffer;
-  vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-  vkQueueWaitIdle(graphicsQueue);
-
-  vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-}
-
 void FineNgine::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory){
   VkImageCreateInfo imageInfo{};
   imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -513,7 +485,7 @@ void FineNgine::createImage(uint32_t width, uint32_t height, uint32_t mipLevels,
   VkMemoryAllocateInfo allocInfo{};
   allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   allocInfo.allocationSize = memRequirements.size;
-  allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+  allocInfo.memoryTypeIndex = VulkanUtils::findMemoryType(memRequirements.memoryTypeBits, properties, physicalDevice);
 
   if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS){
     throw std::runtime_error("Failed to allocate image memory!");
@@ -534,7 +506,7 @@ void FineNgine::createTextureImage(){
 
   VkBuffer stagingBuffer;
   VkDeviceMemory stagingBufferMemory;
-  createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+  VulkanUtils::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, device, physicalDevice);
 
   void* data;
   vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
@@ -558,7 +530,7 @@ void FineNgine::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t tex
     throw std::runtime_error("Texture image format does not support linear blitting!");
   }
 
-  VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+  VkCommandBuffer commandBuffer = VulkanUtils::beginSingleTimeCommands(commandPool, device);
   VkImageMemoryBarrier barrier{};
   barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.image = image;
@@ -632,7 +604,7 @@ void FineNgine::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t tex
     0, nullptr,
     1, &barrier);
 
-  endSingleTimeCommands(commandBuffer);
+  VulkanUtils::endSingleTimeCommands(commandBuffer, device, commandPool, graphicsQueue);
 }
 
 VkSampleCountFlagBits FineNgine::getMaxUsableSampleCount() {
@@ -711,18 +683,6 @@ void FineNgine::createDescriptorPool(){
   }
 }
 
-uint32_t FineNgine::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties){
-  VkPhysicalDeviceMemoryProperties memProperties;
-  vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-  for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++){
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties){
-      return i;
-    }
-  }
-
-  throw std::runtime_error("Failed to find suitable memory type!");
-}
-
 void FineNgine::createUniformBuffers(){
   VkDeviceSize bufferSize = sizeof(UniformBufferObject);
   uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -730,7 +690,7 @@ void FineNgine::createUniformBuffers(){
   uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-    createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+    VulkanUtils::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i], device, physicalDevice);
     vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
   }
 }
@@ -760,61 +720,28 @@ void FineNgine::createDescriptorSetLayout(){
   }
 }
 
-void FineNgine::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory){
-  VkBufferCreateInfo bufferInfo{};
-  bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  bufferInfo.size = size;
-  bufferInfo.usage = usage;
-  bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-  if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS){
-    throw std::runtime_error("Failed to create buffer!");
-  }
-
-  VkMemoryRequirements memRequirements;
-  vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
-
-  VkMemoryAllocateInfo allocInfo{};
-  allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocInfo.allocationSize = memRequirements.size;
-  allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-  if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS){
-    throw std::runtime_error("Failed to allocate buffer memory!");
-  }
-  vkBindBufferMemory(device, buffer, bufferMemory, 0);
-}
-
-void FineNgine::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size){
-  VkCommandBuffer commandBuffer = beginSingleTimeCommands();
-  VkBufferCopy copyRegion{};
-  copyRegion.size = size;
-  vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-  endSingleTimeCommands(commandBuffer);
-}
 
 void FineNgine::createIndexBuffer(){
   VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
   VkBuffer stagingBuffer;
   VkDeviceMemory stagingBufferMemory;
-  createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+  VulkanUtils::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, device, physicalDevice);
 
   void* data;
   vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
   memcpy(data, indices.data(), (size_t) bufferSize);
   vkUnmapMemory(device, stagingBufferMemory);
 
-  createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-  copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+  VulkanUtils::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory, device, physicalDevice);
+  VulkanUtils::copyBuffer(stagingBuffer, indexBuffer, bufferSize, commandPool, device, graphicsQueue);
 
   vkDestroyBuffer(device, stagingBuffer, nullptr);
   vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 void FineNgine::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height){
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+    VkCommandBuffer commandBuffer = VulkanUtils::beginSingleTimeCommands(commandPool, device);
     VkBufferImageCopy region{};
     region.bufferOffset = 0;
     region.bufferRowLength = 0;
@@ -831,11 +758,11 @@ void FineNgine::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width
     };
 
     vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    endSingleTimeCommands(commandBuffer);
+    VulkanUtils::endSingleTimeCommands(commandBuffer, device, commandPool, graphicsQueue);
 }
 
 void FineNgine::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels){
-  VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+  VkCommandBuffer commandBuffer = VulkanUtils::beginSingleTimeCommands(commandPool, device);
   VkImageMemoryBarrier barrier{};
   barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.oldLayout = oldLayout;
@@ -891,7 +818,7 @@ void FineNgine::transitionImageLayout(VkImage image, VkFormat format, VkImageLay
     1, &barrier
   );
 
-  endSingleTimeCommands(commandBuffer);
+  VulkanUtils::endSingleTimeCommands(commandBuffer, device, commandPool, graphicsQueue);
 }
 
 void FineNgine::createVertexBuffer(){
@@ -899,15 +826,15 @@ void FineNgine::createVertexBuffer(){
   //Staging Buffer (CPU accessible)
   VkBuffer stagingBuffer;
   VkDeviceMemory stagingBufferMemory;
-  createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+  VulkanUtils::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, device, physicalDevice);
 
   void* data;
   vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
   memcpy(data, vertices.data(), (size_t) bufferSize);
   vkUnmapMemory(device, stagingBufferMemory);
   //Vertex Buffer (GPU bound)
-  createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
-  copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+  VulkanUtils::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory, device, physicalDevice);
+  VulkanUtils::copyBuffer(stagingBuffer, vertexBuffer, bufferSize, commandPool, device, graphicsQueue);
 
   vkDestroyBuffer(device, stagingBuffer, nullptr);
   vkFreeMemory(device, stagingBufferMemory, nullptr);

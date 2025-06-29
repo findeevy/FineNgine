@@ -4,7 +4,7 @@ LDFLAGS :=  -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 TARGET := FineNgine
 SRC_DIR := src
 
-SRCS := $(SRC_DIR)/main.cpp $(SRC_DIR)/render.cpp
+SRCS := $(SRC_DIR)/main.cpp $(SRC_DIR)/render.cpp $(SRC_DIR)/utils.cpp
 OBJS := $(SRCS:.cpp=.o)
 
 $(TARGET): $(OBJS)
