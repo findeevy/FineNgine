@@ -4,7 +4,7 @@ A Vulkan and C++ based modern real time GPU based 3D rendering engine that I am 
 ## Compilation:
 Run the makefile after installing the [dependencies](#dependencies). Also make sure to compile the shaders using the provided script [compileShaders.sh](https://github.com/findeevy/Finengine/blob/main/compileShaders.sh). I use [GCC](https://gcc.gnu.org/) and [Arch Linux](https://archlinux.org/) for compiling, the tools provided probably won't work on macOS or Windows out of the box but will most likely work on other Linux distributions.
 
-## Features:
+## Current Features:
 - 3D Model support (.obj).
 - Fragment/vertex shader support.
 - Window resizing.
@@ -17,6 +17,11 @@ Run the makefile after installing the [dependencies](#dependencies). Also make s
 - Swap chain and frame buffer management.
 - CPU/GPU synchronization.
 - Error checking.
+
+## Future Features:
+- Blinn-Phong Lighting (In Progress)
+- Compute Shaders
+- CPU Multithreading for Initialization
 
 ## Sample Output:
 ![Model of Chicken](3dmodel.gif)
