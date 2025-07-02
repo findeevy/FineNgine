@@ -20,6 +20,7 @@ Run the makefile after installing the [dependencies](#dependencies). Also make s
 
 ## Future Features:
 - Blinn-Phong Lighting (In Progress)
+- Better documentation (oops...)
 - Compute Shaders
 - CPU Multithreading for Initialization
 
