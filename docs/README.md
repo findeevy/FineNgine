@@ -8,6 +8,7 @@ Run the makefile after installing the [dependencies](#dependencies). Also make s
 - 3D Model support (.obj).
 - Blinn-Phong Lighting
 - Fragment/vertex shader support.
+- Colored lighting.
 - Window resizing.
 - Texture mapping.
 - Multi-sampling (MSAA).
@@ -21,6 +22,7 @@ Run the makefile after installing the [dependencies](#dependencies). Also make s
 
 ## Future Features:
 - Better documentation (oops...)
+- Shadow Mapping
 - Compute Shaders
 - CPU Multithreading for Initialization
 
