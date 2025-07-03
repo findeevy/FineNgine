@@ -6,6 +6,7 @@ Run the makefile after installing the [dependencies](#dependencies). Also make s
 
 ## Current Features:
 - 3D Model support (.obj).
+- Blinn-Phong Lighting
 - Fragment/vertex shader support.
 - Window resizing.
 - Texture mapping.
@@ -19,7 +20,6 @@ Run the makefile after installing the [dependencies](#dependencies). Also make s
 - Error checking.
 
 ## Future Features:
-- Blinn-Phong Lighting (In Progress)
 - Better documentation (oops...)
 - Compute Shaders
 - CPU Multithreading for Initialization
