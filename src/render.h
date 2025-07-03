@@ -47,9 +47,10 @@ struct Vertex {
   glm::vec3 pos;
   glm::vec3 color;
   glm::vec2 texCoord;
+  glm::vec3 normal;
 
   static VkVertexInputBindingDescription getBindingDescription();
-  static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions();
+  static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
   bool operator==(const Vertex& other) const;
 };
 
@@ -63,6 +64,12 @@ struct UniformBufferObject {
   alignas(16) glm::mat4 model;
   alignas(16) glm::mat4 view;
   alignas(16) glm::mat4 proj;
+  alignas(16) glm::vec3 viewPosition;
+};
+
+struct LightBufferObject {
+  alignas(16) glm::vec3 lightPosition;
+  alignas(16) glm::vec3 lightColor; 
 };
 
 class FineNgine {
@@ -172,6 +179,11 @@ private:
   std::vector<VkBuffer> uniformBuffers;
   std::vector<VkDeviceMemory> uniformBuffersMemory;
   std::vector<void*> uniformBuffersMapped;
+
+  std::vector<VkBuffer> lightingUniformBuffers;
+  std::vector<VkDeviceMemory> lightingUniformBuffersMemory;
+  std::vector<void*> lightingUniformBuffersMapped;
+  
   VkDescriptorPool descriptorPool;
   std::vector<VkDescriptorSet> descriptorSets;
   VkImage colorImage;
