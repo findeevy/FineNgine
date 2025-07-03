@@ -530,7 +530,7 @@ void FineNgine::createTextureImage(){
   vkUnmapMemory(device, stagingBufferMemory);
   stbi_image_free(pixels);
 
-  createImage(texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+  createImage(texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
 
   transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
   copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
@@ -680,6 +680,7 @@ void FineNgine::createDescriptorSets(){
     descriptorWrites[1].dstBinding = 1;
     descriptorWrites[1].dstArrayElement = 0;
     descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrites[1].descriptorCount = 1;
     descriptorWrites[1].pBufferInfo = &lightingBufferInfo;
 
     descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -695,9 +696,9 @@ void FineNgine::createDescriptorSets(){
 }
 
 void FineNgine::createDescriptorPool(){    
-  std::array<VkDescriptorPoolSize, 2> poolSizes{};
+  std::array<VkDescriptorPoolSize, 3> poolSizes{};
   poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+  poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)*2;
   poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
   poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
@@ -939,7 +940,7 @@ void FineNgine::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
   renderPassInfo.renderArea.extent = swapChainExtent;
   
   std::array<VkClearValue, 2> clearValues{};
-  clearValues[0].color = {{0.0f, 0.0f, 0.5f, 1.0f}};
+  clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
   clearValues[1].depthStencil = {1.0f, 0};
 
   renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -1574,7 +1575,15 @@ void FineNgine::updateUniformBuffer(uint32_t currentImage){
   LightBufferObject lit{};
   //Lighting
   lit.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
-  lit.lightPosition = glm::vec3(2.0f, 0.0f, 4.0f);
+  float rotationSpeed = glm::radians(30.0f); 
+  float radius = 4.0f;
+  // Calculate new position using circular motion
+  lit.lightPosition = glm::vec3(
+    radius * sin(time * rotationSpeed),  // X
+    1.5f,                                // Y (keep at same height)
+    radius * cos(time * rotationSpeed)    // Z
+  );
+
   memcpy(lightingUniformBuffersMapped[currentFrame], &lit, sizeof(lit));
 }
 
