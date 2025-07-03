@@ -56,8 +56,8 @@ VkVertexInputBindingDescription Vertex::getBindingDescription() {
   return bindingDescription;
 }
 
-std::array<VkVertexInputAttributeDescription, 3> Vertex::getAttributeDescriptions() {
-  std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+std::array<VkVertexInputAttributeDescription, 4> Vertex::getAttributeDescriptions() {
+  std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
   //Vertex
   attributeDescriptions[0].binding = 0;
   attributeDescriptions[0].location = 0;
@@ -73,6 +73,11 @@ std::array<VkVertexInputAttributeDescription, 3> Vertex::getAttributeDescription
   attributeDescriptions[2].location = 2;
   attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
   attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+  //Normal
+  attributeDescriptions[3].binding = 0;
+  attributeDescriptions[3].location = 3;
+  attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+  attributeDescriptions[3].offset = offsetof(Vertex, normal);
 
   return attributeDescriptions;
 }
@@ -82,7 +87,7 @@ bool Vertex::operator==(const Vertex& other) const {
 }
 
 size_t std::hash<Vertex>::operator()(Vertex const& vertex) const {
-  return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+  return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1) ^ (hash<glm::vec3>()(vertex.normal) << 1);
 }
 
 void FineNgine::run() {
@@ -366,6 +371,17 @@ void FineNgine::loadModel() {
         attrib.vertices[3 * index.vertex_index + 2]
       };
 
+      if (index.normal_index >= 0){
+        vertex.normal = {
+          attrib.normals[3 * index.normal_index + 0],
+          attrib.normals[3 * index.normal_index + 1],
+          attrib.normals[3 * index.normal_index + 2]
+        };
+      } 
+      else{
+        vertex.normal = {0.0f, 0.0f, 1.0f};
+      }
+
       vertex.texCoord = {
         attrib.texcoords[2 * index.texcoord_index + 0],
         1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
@@ -639,12 +655,18 @@ void FineNgine::createDescriptorSets(){
     bufferInfo.buffer = uniformBuffers[i];
     bufferInfo.offset = 0;
     bufferInfo.range = sizeof(UniformBufferObject);
-    
+   
+    VkDescriptorBufferInfo lightingBufferInfo{};
+    lightingBufferInfo.buffer = lightingUniformBuffers[i];
+    lightingBufferInfo.offset = 0;
+    lightingBufferInfo.range = sizeof(LightBufferObject);
+
     VkDescriptorImageInfo imageInfo{};
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageInfo.imageView = textureImageView;
     imageInfo.sampler = textureSampler;
-    std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+
+    std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[0].dstSet = descriptorSets[i];
     descriptorWrites[0].dstBinding = 0;
@@ -652,14 +674,21 @@ void FineNgine::createDescriptorSets(){
     descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptorWrites[0].descriptorCount = 1;
     descriptorWrites[0].pBufferInfo = &bufferInfo;
-
+ 
     descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[1].dstSet = descriptorSets[i];
     descriptorWrites[1].dstBinding = 1;
     descriptorWrites[1].dstArrayElement = 0;
-    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[1].descriptorCount = 1;
-    descriptorWrites[1].pImageInfo = &imageInfo;
+    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrites[1].pBufferInfo = &lightingBufferInfo;
+
+    descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[2].dstSet = descriptorSets[i];
+    descriptorWrites[2].dstBinding = 2;
+    descriptorWrites[2].dstArrayElement = 0;
+    descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[2].descriptorCount = 1;
+    descriptorWrites[2].pImageInfo = &imageInfo;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
   }
@@ -689,8 +718,29 @@ void FineNgine::createUniformBuffers(){
   uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
   uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
+  VkDeviceSize lightingBufferSize = sizeof(LightBufferObject);
+  lightingUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+  lightingUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+  lightingUniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-    VulkanUtils::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i], device, physicalDevice);
+    VulkanUtils::createBuffer(bufferSize, 
+	    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+	    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+	    uniformBuffers[i], 
+	    uniformBuffersMemory[i], 
+	    device, 
+	    physicalDevice);
+    VulkanUtils::createBuffer(
+	    lightingBufferSize, 
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            lightingUniformBuffers[i], 
+            lightingUniformBuffersMemory[i], 
+            device, 
+            physicalDevice
+        );
+        vkMapMemory(device, lightingUniformBuffersMemory[i], 0, lightingBufferSize, 0, &lightingUniformBuffersMapped[i]);
     vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
   }
 }
@@ -702,14 +752,22 @@ void FineNgine::createDescriptorSetLayout(){
   uboLayoutBinding.descriptorCount = 1;
   uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   uboLayoutBinding.pImmutableSamplers = nullptr;
-  uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+  
+  VkDescriptorSetLayoutBinding lightingLayoutBinding{};
+  lightingLayoutBinding.binding = 1;
+  lightingLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  lightingLayoutBinding.descriptorCount = 1;
+  lightingLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
   VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-  samplerLayoutBinding.binding = 1;
+  samplerLayoutBinding.binding = 2;
   samplerLayoutBinding.descriptorCount = 1;
   samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
   samplerLayoutBinding.pImmutableSamplers = nullptr;
   samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-  std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
+
+  std::array<VkDescriptorSetLayoutBinding, 3> bindings = {uboLayoutBinding, lightingLayoutBinding, samplerLayoutBinding};
   VkDescriptorSetLayoutCreateInfo layoutInfo{};
   layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1503,7 +1561,6 @@ void FineNgine::drawFrame(){
 
 void FineNgine::updateUniformBuffer(uint32_t currentImage){
   static auto startTime = std::chrono::high_resolution_clock::now();
-
   auto currentTime = std::chrono::high_resolution_clock::now();
   float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
   UniformBufferObject ubo{};
@@ -1511,15 +1568,16 @@ void FineNgine::updateUniformBuffer(uint32_t currentImage){
   ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
   ubo.proj[1][1] *= -1;
-
-  ubo.viewPosition = NULL;
-
-  //Lighting
-  ubo.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
-  ubo.lightPosition = glm::vec3(2.0f, 0.0f, 4.0f);
-
+  ubo.viewPosition = glm::vec3(2.0f, 2.0f, 2.0f);
   memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+
+  LightBufferObject lit{};
+  //Lighting
+  lit.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+  lit.lightPosition = glm::vec3(2.0f, 0.0f, 4.0f);
+  memcpy(lightingUniformBuffersMapped[currentFrame], &lit, sizeof(lit));
 }
+
 
 void FineNgine::cleanup(){
   cleanupSwapChain();
@@ -1531,6 +1589,8 @@ void FineNgine::cleanup(){
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
     vkDestroyBuffer(device, uniformBuffers[i], nullptr);
     vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+    vkDestroyBuffer(device, lightingUniformBuffers[i], nullptr);
+    vkFreeMemory(device, lightingUniformBuffersMemory[i], nullptr);
   }
 
   vkDestroyDescriptorPool(device, descriptorPool, nullptr);
