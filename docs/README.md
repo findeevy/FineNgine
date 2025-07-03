@@ -19,6 +19,7 @@ Run the makefile after installing the [dependencies](#dependencies). Also make s
 - Error checking.
 
 ## Sample Output:
+![Model of Dragon](blinn-phong.gif)
 ![Model of Chicken](3dmodel.gif)
 ![Rotating Grass Tiles](zbuffer.gif)
 
