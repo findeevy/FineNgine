@@ -28,13 +28,6 @@ Z-Buffering Support:\
 - CPU/GPU synchronization.
 - Error checking.
 
-## Future Features:
-- Better documentation (oops...)
-- Shadow Mapping
-- [Multi-Mesh](https://docs.vulkan.org/tutorial/latest/16_Multiple_Objects.html)
-- Compute Shaders
-- CPU Multithreading for Initialization
-
 ## Dependencies:
 - [Vulkan](https://www.vulkan.org)
 - [GLM](https://github.com/g-truc/glm)
