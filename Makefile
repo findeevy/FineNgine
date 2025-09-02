@@ -16,4 +16,12 @@ $(SRC_DIR)/%.o: $(SRC_DIR)/%.cpp
 clean:
 	rm -f $(TARGET) $(OBJS)
 
-.PHONY: clean
+FORMAT_EXTENSIONS := *.cpp *.h
+FORMAT_DIR := src
+CLANG_FORMAT := clang-format
+FORMAT_STYLE := file
+
+format:
+	find $(FORMAT_DIR) -type f \( -name "*.cpp" -o -name "*.h" \) -exec $(CLANG_FORMAT) -i -style=$(FORMAT_STYLE) {} +
+
+.PHONY: format
