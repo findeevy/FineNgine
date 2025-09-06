@@ -34,3 +34,6 @@ Z-Buffering Support:\
 - [STB](https://github.com/nothings/stb)
 - [GLFW](https://www.glfw.org)
 - [TinyObjLoader](https://github.com/tinyobjloader/tinyobjloader)
+
+## Shaders:
+Inside of the shaders folder I have directly placed the standard "realistic" shaders, inside of the [alt](https://github.com/findeevy/Finengine/blob/main/shaders/alt/) subfolder I have put some fun experimental shaders as well. Feel free to replace the standard ones with these and see how they alter the image!
