@@ -5,6 +5,8 @@ A basic Vulkan and C++ based modern real time GPU based 3D rendering engine that
 Run the makefile after installing the [dependencies](#dependencies). Also make sure to compile the shaders using the provided script [compileShaders.sh](https://github.com/findeevy/Finengine/blob/main/compileShaders.sh). I use [GCC](https://gcc.gnu.org/) and [Arch Linux](https://archlinux.org/) for compiling, the tools provided probably won't work on macOS or Windows out of the box but will most likely work on other Linux distributions.
 
 ## Sample Output:
+Colored Point Lighting:\
+![Model of Gallery](art.gif)\
 Blinn-Phong Shading (Specular + Diffuse):\
 ![Model of Dragon](blinn-phong.gif)\
 OBJ loading and texture mapping:\
@@ -14,7 +16,8 @@ Z-Buffering Support:\
 
 ## Current Features:
 - 3D Model support (.obj).
-- Blinn-Phong Lighting
+- Blinn-Phong Lighting.
+- Point Lights.
 - Fragment/vertex shader support.
 - Colored lighting.
 - Window resizing.

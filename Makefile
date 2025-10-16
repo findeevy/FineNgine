@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -std=c++17 -Wall -Wextra -O3
+CXXFLAGS := -std=c++17 -DNDEBUG -Wall -Wextra -O3
 LDFLAGS :=  -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 TARGET := FineNgine
 SRC_DIR := src

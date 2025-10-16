@@ -71,6 +71,7 @@ struct UniformBufferObject {
 struct LightBufferObject {
   alignas(16) glm::vec3 lightPosition;
   alignas(16) glm::vec3 lightColor;
+  alignas(4) float lightRadius;
 };
 
 class FineNgine {

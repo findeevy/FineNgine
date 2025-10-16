@@ -1627,9 +1627,24 @@ std::vector<char> FineNgine::readFile(const std::string &filename) {
 
 void FineNgine::mainLoop() {
   // Check for user input and keep drawing frames until user exits.
+  int frameCount = 0;
+  using clock = std::chrono::high_resolution_clock;
+  auto lastUpdateTime = clock::now();
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
     drawFrame();
+    auto currentTime = clock::now();
+    frameCount++;
+
+    std::chrono::duration<double> timeSinceLastUpdate =
+        currentTime - lastUpdateTime;
+
+    if (timeSinceLastUpdate.count() >= 1.0) {
+      double fps = frameCount / timeSinceLastUpdate.count();
+      std::cout << "\rFPS: " << fps << "    " << std::flush;
+      frameCount = 0;
+      lastUpdateTime = currentTime;
+    }
   }
   vkDeviceWaitIdle(device);
 }
@@ -1709,29 +1724,27 @@ void FineNgine::updateUniformBuffer(uint32_t currentImage) {
                    currentTime - startTime)
                    .count();
   UniformBufferObject ubo{};
-  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
+  ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(100.0f),
                           glm::vec3(0.0f, 0.0f, 1.0f));
   ubo.view =
-      glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                  glm::vec3(0.0f, 0.0f, 1.0f));
+      glm::lookAt(glm::vec3(5.0f, sin(time) * 5.0f, 2.0f),
+                  glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   ubo.proj = glm::perspective(
       glm::radians(45.0f),
-      swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+      swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 20.0f);
   ubo.proj[1][1] *= -1;
   ubo.viewPosition = glm::vec3(2.0f, 2.0f, 2.0f);
   memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 
   LightBufferObject lit{};
-  // Lighting
-  lit.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
-  float rotationSpeed = glm::radians(30.0f);
-  float radius = 4.0f;
-  // Calculate new position using circular motion
-  lit.lightPosition = glm::vec3(radius * sin(time * rotationSpeed), // X
-                                1.5f, // Y (keep at same height)
-                                radius * cos(time * rotationSpeed) // Z
-  );
 
+  lit.lightColor = glm::vec3(2.0f, abs(cos(time)), abs(cos(time)));
+  float orbitRadius = 2.0f;
+  float orbitSpeed = 0.5f;
+  lit.lightPosition = glm::vec3(orbitRadius * cos(time * orbitSpeed),
+                                orbitRadius * sin(time * orbitSpeed), 3.0f);
+
+  lit.lightRadius = 5.0f;
   memcpy(lightingUniformBuffersMapped[currentFrame], &lit, sizeof(lit));
 }
 
@@ -1780,4 +1793,5 @@ void FineNgine::cleanup() {
   vkDestroyInstance(instance, nullptr);
   glfwDestroyWindow(window);
   glfwTerminate();
+  std::cout << std::endl;
 }

@@ -18,14 +18,20 @@ layout(location = 2) out vec3 fragPos;
 layout(location = 3) out vec3 fragNormal;
 
 void main() {
-  //Calculate the world position of our vertex.
+  // Calculate the world position of our vertex
   vec4 worldPosition = ubo.model * vec4(inPosition, 1.0);
-  //Calculate the position on our screen.
+  
+  // Calculate the position on our screen
   gl_Position = ubo.proj * ubo.view * worldPosition;
+  
+  // Pass world space position to fragment shader
   fragPos = worldPosition.xyz;
-  //Move off of GPU later, precompute? Moves normals from model space into worldspace.
-  fragNormal = mat3(transpose(inverse(ubo.model))) * inNormal;
-  //Pass in values.
+  
+  // Transform normal to world space using the normal matrix
+  // (inverse transpose of the 3x3 model matrix)
+  fragNormal = normalize(mat3(transpose(inverse(ubo.model))) * inNormal);
+  
+  // Pass in values
   fragColor = inColor;
   fragTexCoord = inTexCoord;
 }
